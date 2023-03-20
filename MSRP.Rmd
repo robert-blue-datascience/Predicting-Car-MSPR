@@ -1,0 +1,113 @@
+---
+title: "MSRP Project"
+author: "Blue"
+date: "2023-01-31"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+library(GGally)
+library(skimr)
+library(tidyverse)
+setwd("C:/Users/rober/OneDrive/Desktop/MSDS 6372/Project 1")
+car<-read.csv("Project Data - MSRP.csv")
+
+car$Generation <- ifelse(car$Year > 2000, "New", "Old")
+
+head(car)
+skim(car)
+car_f <- car
+
+```
+
+```{r}
+factor_cols <- c("Make","Model","Engine.Fuel.Type","Transmission.Type","Driven_Wheels","Market.Category","Vehicle.Size", "Vehicle.Style", "Generation")
+car_f[,factor_cols] <- lapply(car_f[,factor_cols], as.factor)
+car_data <- car_f
+
+skim(car_data)
+```
+```{r}
+car_clean <- car_f[!duplicated(car), ]
+Missing_Rows = length(car_clean$Make)-length(car_clean$Make)
+Missing_Rows
+
+```
+
+```{r}
+library(dplyr)
+library(olsrr)
+
+car_LM <- select(car_clean, -c("Model", "Market.Category"))
+
+model <- lm(MSRP ~., data = car_LM)
+LM_Step <- ols_step_both_aic(model)
+LM_FWD <- ols_step_forward_aic(model)
+LM_BWD <- ols_step_backward_aic(model)
+
+# Step-Wise Results
+
+LM_Step$predictors
+
+# Forward Results
+
+LM_FWD$predictors
+
+# Backward Results
+
+LM_BWD$predictors
+
+```
+
+
+```{r}
+car_fit1 <- select(car_LM, c("Engine.HP","Engine.Cylinders","Vehicle.Style","Vehicle.Size","Transmission.Type","Engine.Fuel.Type","city.mpg","Driven_Wheels","Popularity","Number.of.Doors","Year", "Generation", "MSRP"))
+
+car_fit2 <- select(car_LM, c("Popularity", "highway.MPG", "MSRP"))
+
+car_fit3 <- select(car_LM, c("Make", "Engine.HP","Engine.Cylinders","Vehicle.Style","Vehicle.Size","Transmission.Type","Engine.Fuel.Type","city.mpg","Driven_Wheels","Popularity","Number.of.Doors","Year", "Generation", "MSRP"))
+
+fit1 <- lm(MSRP ~ ., data = car_fit1)
+
+fit2 <- lm(MSRP ~ ., data = car_fit2)
+
+fit3 <- lm(MSRP ~ ., data = car_fit3)
+
+summary(fit1)
+summary(fit2)
+summary(fit3)
+
+plot(fit1)
+plot(fit2)
+plot(fit3)
+```
+
+
+```{r}
+library(caret)
+library(class)
+
+car_knn <- select(car, c("MSRP", "Year", "Engine.HP", "Engine.Cylinders", "Number.of.Doors", "highway.MPG", "city.mpg", "Popularity", "Generation"))
+car_knn1 <- na.omit(car_fit1)
+
+car_knn <- na.omit(car_knn)
+
+```
+
+
+```{r}
+
+set.seed(123)
+splitIndex <- createDataPartition(car_knn$MSRP, p = .8, list = FALSE)
+trainingData <- car_knn[splitIndex, ]
+testingData <- car_knn[-splitIndex, ]
+
+knnFit <- train(MSRP ~ ., data = trainingData, method = "knn")
+
+predictions <- predict(knnFit, newdata = testingData)
+
+postResample(predictions, testingData$MSRP)
+
+```
